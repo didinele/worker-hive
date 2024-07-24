@@ -1,1 +1,1 @@
-export * from './Hive.js';
+export * from './hive/Hive.js';

@@ -1,6 +1,6 @@
 {
 	"name": "worker-hive",
-	"description": "Tiny, yet powerful worker_thread pools for Node.js",
+	"description": "Tiny, yet powerful worker_threads pools for Node.js",
 	"packageManager": "yarn@4.3.1",
 	"type": "module",
 	"version": "0.1.0",
