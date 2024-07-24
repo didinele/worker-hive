@@ -1,0 +1,64 @@
+{
+	"name": "worker-hive",
+	"description": "Tiny, yet powerful worker_thread pools for Node.js",
+	"packageManager": "yarn@4.3.1",
+	"type": "module",
+	"version": "0.1.0",
+	"author": {
+		"name": "Denis Cristea",
+		"email": "didinele.dev@gmail.com"
+	},
+	"exports": {
+		"require": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.cjs"
+		},
+		"import": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"directories": {
+		"lib": "src"
+	},
+	"files": [
+		"dist"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/didinele/worker-hive.git"
+	},
+	"bugs": {
+		"url": "https://github.com/didinele/worker-hive/issues"
+	},
+	"homepage": "https://github.com/didinele/worker-hive",
+	"scripts": {
+		"build": "tsup && tsc",
+		"prepack": "yarn build",
+		"lint": "eslint src --ext .ts && prettier --check .",
+		"format": "prettier --write .",
+		"update": "yarn upgrade-interactive",
+		"postinstall": "is-ci || husky || true"
+	},
+	"devDependencies": {
+		"@commitlint/cli": "^19.3.0",
+		"@commitlint/config-angular": "^19.3.0",
+		"eslint": "^8.53.0",
+		"eslint-config-neon": "^0.1.62",
+		"husky": "^9.0.11",
+		"is-ci": "^3.0.1",
+		"lint-staged": "^15.2.7",
+		"prettier": "^3.3.2",
+		"prettier-eslint": "^16.3.0",
+		"tsup": "^7.2.0",
+		"turbo": "^1.10.16",
+		"typescript": "^5.5.3"
+	},
+	"dependencies": {
+		"@sapphire/stopwatch": "^1.5.2",
+		"@vladfrangu/async_event_emitter": "^2.4.4"
+	}
+}
