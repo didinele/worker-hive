@@ -2,6 +2,7 @@ import { setTimeout, clearTimeout } from 'node:timers';
 import { Worker } from 'node:worker_threads';
 import type { AsyncEventEmitter } from '@vladfrangu/async_event_emitter';
 import { LifeCycleEvents, type LifeCycleEventsMap } from '../hive/Hive.js';
+import { isValidMessage, type InternalPayloadFields } from '../util/isValidMessage.js';
 
 export interface RequiredBeeManagerOptions {
 	scriptPath: string;
@@ -22,11 +23,6 @@ export const DefaultBeeManagerOptions = {
 interface PendingMessageActions {
 	reject(reason: Error): void;
 	resolve(value: unknown): void;
-}
-
-interface InternalPayloadFields {
-	__kind: number;
-	__nonce: number;
 }
 
 /**
@@ -74,12 +70,8 @@ export class BeeManager {
 			return false;
 		}
 
-		await this.destroy();
-
 		await this.#worker.terminate();
-		this.#worker.removeAllListeners();
-
-		this.#worker = null;
+		this.destroy();
 
 		return true;
 	}
@@ -113,6 +105,7 @@ export class BeeManager {
 			const timeout = setTimeout(() => {
 				// eslint-disable-next-line @typescript-eslint/no-use-before-define
 				reject(new Error('Job timed out'));
+				this.#lifeCycle.emit(LifeCycleEvents.WorkerJobTimedOut, this.id);
 			}, this.#options.jobTimeout);
 
 			const cleanup = () => {
@@ -122,6 +115,8 @@ export class BeeManager {
 				if (signal) {
 					signal.removeEventListener('abort', abortCallback);
 				}
+
+				this.#lifeCycle.emit(LifeCycleEvents.WorkerJobCompleted, this.id);
 
 				if (this.#pending.size === 0) {
 					this.#lifeCycle.emit(LifeCycleEvents.WorkerFree, this.id);
@@ -147,13 +142,13 @@ export class BeeManager {
 			.on('online', () => {
 				this.#lifeCycle.emit(LifeCycleEvents.WorkerOnline, this.id);
 			})
-			.on('exit', async (code) => {
+			.on('exit', (code) => {
 				this.#lifeCycle.emit(LifeCycleEvents.WorkerExit, this.id, code);
-				await this.destroy();
+				this.destroy();
 			})
-			.on('error', async (error) => {
+			.on('error', (error) => {
 				this.#lifeCycle.emit(LifeCycleEvents.WorkerError, this.id, error);
-				await this.destroy();
+				this.destroy();
 			})
 			.on('messageerror', (error) => {
 				this.#lifeCycle.emit(LifeCycleEvents.WorkerMessageError, this.id, error);
@@ -161,27 +156,10 @@ export class BeeManager {
 			.on('message', async (message) => this.handleMessage(message));
 	}
 
-	private isValidMessage(message: any): message is InternalPayloadFields {
-		if (typeof message !== 'object') {
-			return false;
-		}
-
-		if (!('__nonce' in message) || typeof message.__nonce !== 'number') {
-			return false;
-		}
-
-		// eslint-disable-next-line sonarjs/prefer-single-boolean-return
-		if (!('__kind' in message) || typeof message.__kind !== 'number') {
-			return false;
-		}
-
-		return true;
-	}
-
 	private async handleMessage(message: any): Promise<void> {
-		if (!this.isValidMessage(message)) {
+		if (!isValidMessage(message)) {
 			this.#lifeCycle.emit(LifeCycleEvents.Error, new Error('Invalid message received from worker'));
-			await this.destroy();
+			this.destroy();
 			return;
 		}
 
@@ -196,7 +174,10 @@ export class BeeManager {
 		actions.resolve(data);
 	}
 
-	private async destroy(): Promise<void> {
+	private destroy(): void {
+		this.#worker?.removeAllListeners();
+		this.#worker = null;
+
 		if (this.#pending.size) {
 			for (const { reject } of this.#pending.values()) {
 				reject(new Error('Worker terminated'));

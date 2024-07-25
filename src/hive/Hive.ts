@@ -1,4 +1,3 @@
-import { once } from 'node:events';
 import { AsyncEventEmitter } from '@vladfrangu/async_event_emitter';
 import { BeeManager, type BeeManagerOptions } from '../bee/BeeManager.js';
 import { filteredOnce } from '../util/filteredEventOnce.js';
@@ -11,6 +10,8 @@ export enum LifeCycleEvents {
 	WorkerExit = 'workerExit',
 	WorkerFree = 'workerFree',
 	WorkerHangingResponse = 'workerHangingResponse',
+	WorkerJobCompleted = 'workerJobCompleted',
+	WorkerJobTimedOut = 'workerJobTimedOut',
 	WorkerMessageError = 'workerMessageError',
 	WorkerOnline = 'workerOnline',
 	WorkerSpawned = 'workerSpawned',
@@ -18,13 +19,15 @@ export enum LifeCycleEvents {
 
 export interface LifeCycleEventsMap {
 	[LifeCycleEvents.Error]: [error: Error];
-	[LifeCycleEvents.WorkerSpawned]: [id: number];
-	[LifeCycleEvents.WorkerOnline]: [id: number];
+	[LifeCycleEvents.WorkerError]: [id: number, error: Error];
 	[LifeCycleEvents.WorkerExit]: [id: number, code: number];
 	[LifeCycleEvents.WorkerFree]: [id: number];
-	[LifeCycleEvents.WorkerError]: [id: number, error: Error];
-	[LifeCycleEvents.WorkerMessageError]: [id: number, error: Error];
 	[LifeCycleEvents.WorkerHangingResponse]: [id: number, response: unknown];
+	[LifeCycleEvents.WorkerJobCompleted]: [id: number];
+	[LifeCycleEvents.WorkerJobTimedOut]: [id: number];
+	[LifeCycleEvents.WorkerMessageError]: [id: number, error: Error];
+	[LifeCycleEvents.WorkerOnline]: [id: number];
+	[LifeCycleEvents.WorkerSpawned]: [id: number];
 }
 
 export interface RequiredHiveOptions {
@@ -43,7 +46,11 @@ export const DefaultHiveOptions = {
 	},
 } as const satisfies Required<OptionalHiveOptions>;
 
-export class Hive {
+export class Hive<
+	MessageKind extends number,
+	PayloadMap extends Record<MessageKind, Record<string, any>>,
+	ResultMap extends Record<MessageKind, any>,
+> {
 	readonly #options: Required<HiveOptions>;
 
 	readonly #picker: Picker;
@@ -100,16 +107,9 @@ export class Hive {
 		}
 	}
 
-	// TODO
-	public async send(payload: any): Promise<any> {
-		const index = this.#picker.pick();
-		const manager = this.#managers.at(index);
-
-		if (!manager) {
-			throw new Error(`No worker available at index ${index}.`);
-		}
-
-		return manager.send(0, payload);
+	public async send<Kind extends MessageKind>(kind: Kind, payload: PayloadMap[Kind]): Promise<ResultMap[Kind]> {
+		const manager = this.pickBee();
+		return manager.send(kind, payload) as ResultMap[Kind];
 	}
 
 	public async restart(id: number): Promise<void> {
@@ -137,5 +137,16 @@ export class Hive {
 				this.lifeCycle.emit(LifeCycleEvents.Error, error);
 			}
 		});
+	}
+
+	private pickBee(): BeeManager {
+		const index = this.#picker.pick();
+		const manager = this.#managers.at(index);
+
+		if (!manager) {
+			throw new Error(`No worker available at index ${index}.`);
+		}
+
+		return manager;
 	}
 }
