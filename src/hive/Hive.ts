@@ -35,7 +35,7 @@ export interface RequiredHiveOptions {
 }
 
 export interface OptionalHiveOptions {
-	buildPicker(): Picker;
+	buildPicker?(): Picker;
 }
 
 export type HiveOptions = OptionalHiveOptions & RequiredHiveOptions;
@@ -64,7 +64,7 @@ export class Hive<
 	}
 
 	public constructor(options: HiveOptions) {
-		this.#options = options;
+		this.#options = { ...DefaultHiveOptions, ...options };
 		this.#picker = this.#options.buildPicker();
 
 		this.lifeCycle = new AsyncEventEmitter();
@@ -72,7 +72,7 @@ export class Hive<
 	}
 
 	public async scale(amount: number): Promise<void> {
-		this.#picker.setAmount(this.#managers.length);
+		this.#picker.setAmount(amount);
 
 		if (this.size > amount) {
 			const diff = this.size - amount;
@@ -98,7 +98,7 @@ export class Hive<
 			const promises: Promise<void>[] = [];
 
 			for (let beeId = 0; beeId < diff; beeId++) {
-				const manager = new BeeManager(this.lifeCycle, beeId, this.#options.beeOptions);
+				const manager = new BeeManager(this.lifeCycle, this.#managers.length, this.#options.beeOptions);
 				this.#managers.push(manager);
 				promises.push(manager.init());
 			}
@@ -107,7 +107,7 @@ export class Hive<
 		}
 	}
 
-	public async send<Kind extends MessageKind>(kind: Kind, payload: PayloadMap[Kind]): Promise<ResultMap[Kind]> {
+	public async dispatch<Kind extends MessageKind>(kind: Kind, payload: PayloadMap[Kind]): Promise<ResultMap[Kind]> {
 		const manager = this.pickBee();
 		return manager.send(kind, payload) as ResultMap[Kind];
 	}

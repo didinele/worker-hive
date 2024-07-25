@@ -32,9 +32,9 @@ export class Bee<
 			}
 
 			const { __kind, __nonce, ...data } = message;
-			const res = await this.handleMessage(__kind, data);
+			const result = await this.handleMessage(__kind, data);
 
-			parentPort!.postMessage({ __nonce, __kind, ...res });
+			parentPort!.postMessage({ __nonce, __kind, result });
 		});
 	}
 

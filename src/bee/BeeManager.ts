@@ -157,21 +157,21 @@ export class BeeManager {
 	}
 
 	private async handleMessage(message: any): Promise<void> {
-		if (!isValidMessage(message)) {
+		if (!isValidMessage(message) || !('result' in message)) {
 			this.#lifeCycle.emit(LifeCycleEvents.Error, new Error('Invalid message received from worker'));
 			this.destroy();
 			return;
 		}
 
-		const { __nonce: nonce, __kind, ...data } = message;
+		const { __nonce: nonce, result } = message;
 		const actions = this.#pending.get(nonce);
 
 		if (!actions) {
-			this.#lifeCycle.emit(LifeCycleEvents.WorkerHangingResponse, this.id, data);
+			this.#lifeCycle.emit(LifeCycleEvents.WorkerHangingResponse, this.id, result);
 			return;
 		}
 
-		actions.resolve(data);
+		actions.resolve(result);
 	}
 
 	private destroy(): void {
